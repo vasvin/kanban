@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Simple Kanban</title>
+  <style>
+    body { font-family: sans-serif; display: flex; justify-content: space-around; padding: 20px; }
+    .column { width: 30%; padding: 10px; border: 1px solid #ccc; min-height: 300px; }
+    .task { background: #f9f9f9; margin: 5px; padding: 10px; border: 1px solid #aaa; cursor: move; }
+    h2 { text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="column" id="todo" ondrop="drop(event)" ondragover="allowDrop(event)">
+    <h2>To Do</h2>
+  </div>
+  <div class="column" id="inprogress" ondrop="drop(event)" ondragover="allowDrop(event)">
+    <h2>In Progress</h2>
+  </div>
+  <div class="column" id="done" ondrop="drop(event)" ondragover="allowDrop(event)">
+    <h2>Done</h2>
+  </div>
+
+  <div style="position: fixed; bottom: 20px; left: 20px;">
+    <input type="text" id="newTask" placeholder="New task...">
+    <button onclick="addTask()">Add</button>
+  </div>
+
+<script>
+const api = 'http://localhost:9090/api/tasks';
+
+function allowDrop(ev) { ev.preventDefault(); }
+function drag(ev) { ev.dataTransfer.setData("id", ev.target.id); }
+
+function drop(ev) {
+  ev.preventDefault();
+  const id = ev.dataTransfer.getData("id");
+  const target = ev.target.closest(".column");
+  if (target) {
+    target.appendChild(document.getElementById(id));
+    updateStatus(id, target.id);
+  }
+}
+
+function updateStatus(id, status) {
+  fetch(api + '/' + id, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: document.getElementById(id).innerText, status })
+  });
+}
+
+function addTask() {
+  const title = document.getElementById("newTask").value;
+  if (!title) return;
+  fetch(api, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, status: "todo" })
+  }).then(loadTasks);
+}
+
+function loadTasks() {
+  ['todo', 'inprogress', 'done'].forEach(id => document.getElementById(id).innerHTML = `<h2>${id.charAt(0).toUpperCase() + id.slice(1)}</h2>`);
+  fetch(api)
+    .then(res => res.json())
+    .then(tasks => {
+      tasks.forEach(task => {
+        const div = document.createElement('div');
+        div.className = 'task';
+        div.id = task.id;
+        div.draggable = true;
+        div.ondragstart = drag;
+        div.innerText = task.title;
+        document.getElementById(task.status).appendChild(div);
+      });
+    });
+}
+
+loadTasks();
+</script>
+</body>
+</html>
